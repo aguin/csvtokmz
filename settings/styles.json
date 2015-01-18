@@ -1,0 +1,8 @@
+{
+"Default": {          
+        "iconColor" = "ffffffff", 
+        "iconImage" = "http://maps.google.com/mapfiles/kml/shapes/square.png",
+        "textScale" = 1,
+        "iconScale" = 1
+        }
+}
