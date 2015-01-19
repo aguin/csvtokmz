@@ -1,8 +1,14 @@
 {
 "Default": {          
         "iconColor": "ffffffff", 
+        "iconImage": "https://maps.google.com/mapfiles/kml/paddle/red-circle.png",
+        "textScale": 1,
+        "iconScale": 1
+        }, 
+"Square": {          
+        "iconColor": "ffffffff", 
         "iconImage": "http://maps.google.com/mapfiles/kml/shapes/square.png",
         "textScale": 1,
         "iconScale": 1
-        }
+        }        
 }

@@ -19,20 +19,26 @@ def convert_data(h,data):
     convData = []
     for row in data:
         newRow = []
-        newRow.append(row[0]) # Folder Name
-        newRow.append(row[1]) # Point Title
-        newRow.append(row[2]) # Latitude
-        newRow.append(row[3]) # Longitude
-        newRow.append(row[4]) # Style
+        newRow.append(row[0].strip()) # Folder Name
+        newRow.append(row[1].strip()) # Point Title
+        try:
+            newRow.append(float(row[2].strip())) # Latitude
+            newRow.append(float(row[3].strip())) # Longitude
+        except ValueError: # Not a Valid Number
+            print('WARNING: Co-ordinates not in correct format for point',row[1].strip())
+            newRow.append(None) 
+            newRow.append(None)
+            
+        newRow.append(row[4].strip()) # Style
             
         cellHTML = ''
         for i, cell in enumerate(row):
             if i > 4:
                 try:
-                    cellHTML += '<dt>' + h[i] + '</dt>'
+                    cellHTML += '<dt>' + h[i].strip() + '</dt>'
                 except:
                     cellHTML += '<dt>Unknown Heading</dt>'
-                cellHTML += '<dd>' + cell + '</dd>'
+                cellHTML += '<dd>' + cell.strip() + '</dd>'
         newRow.append(cellHTML)
         convData.append(newRow)
     
@@ -67,41 +73,109 @@ def export_overlay(fPath, pointData, styleSettings):
     for folder in folders:
         fol = kml.newfolder(name=folder)
         for point in pointData:
-            pntFolder = point[0].strip()
+            pntFolder = point[0]
             if pntFolder == folder:
-                latlon = (float(point[2]),float(point[3]))
-                pntName = point[1].strip()
-                pntDesc = point[5].strip()
-                style = styleSettings[point[4].strip()]
+                latlon = ((point[3]),(point[2]))
+                pntName = point[1]
+                pntDesc = point[5]
 
-                pnt = fol.newpoint(name=pntName, coords=[latlon], description=pntDesc)
-                pnt.style.labelstyle.scale = style['textScale']
-                pnt.style.iconstyle.color = style['iconColor']
-                pnt.style.iconstyle.scale = style['iconScale']
-                pnt.style.iconstyle.icon.href = style['iconImage']
-
+                if not latlon == (None, None): # Don't add points without co-ordinates
+                    # Create the point
+                    pnt = fol.newpoint(name=pntName, coords=[latlon], description=pntDesc)
+                    
+                    # Load styles
+                    try:
+                        style = styleSettings[point[4]]
+                    except KeyError:
+                        print('WARNING: Style','"'+point[4]+'"','not found.')
+                        # Specify default style
+                        try:
+                            style = styleSettings['Default']
+                        except KeyError:
+                            print('ERROR: No default style specified')
+                            style = {'textScale':None,
+                                     'iconColor':None,
+                                     'iconScale':None, 
+                                     'iconImage':None}
+                            
+                    # Apply styles
+                    try:
+                        pnt.style.labelstyle.scale = style['textScale']
+                        pnt.style.iconstyle.color = style['iconColor']
+                        pnt.style.iconstyle.scale = style['iconScale']
+                        pnt.style.iconstyle.icon.href = style['iconImage']
+                    except KeyError:
+                        print('ERROR: The styles json is not in the correct format!')
+                
     # Save File as KMZ
     kml.savekmz(fPath)
     sys.stdout.flush()
 
+    return fPath
+    
+def create_directory(fDir):
+    """ Checks if a directory exists, and creates it it does not
+    """
+    try:
+        os.makedirs(fDir)
+    except OSError:
+        pass
+
+        
 def main():
     """ Main function
     """
     
     args = get_cmd_args() 
+    iPath = os.path.abspath(args.input)
+    sPath = os.path.abspath(args.styles)
+    oDir = os.path.abspath(args.output)
+    success = process_file(iPath,sPath,oDir)
+    
+    
+def process_file(iPath,sPath,oDir):
+    """ Check file locations exists and then process
+    """
+    
+    # Load point style dictionary
+    try:
+        with open(sPath) as sf:
+            try:
+                styleSettings = json.load(sf)
+            except ValueError: 
+                print('ERROR: The styles json file is not in the correct format!')
+                return False
+    except FileNotFoundError:
+        print('ERROR: The specified style file:')
+        print('',sPath)
+        print('','was not found!')
+        return False
+        
+    # Load in the input data
+    try:
+        h, d = import_csv_file(iPath)
+        try:
+            pointData = convert_data(h,d)
+        except IndexError:
+            print('ERROR: The specified csv input file is not in the correct format.')
+            return False
+    except FileNotFoundError:
+        print('ERROR: The specified input file:')
+        print('',iPath)
+        print('','was not found!')
+        return False
 
-    outputDir = args.output       
-    fPath = os.path.abspath(args.input)
-    h, d = import_csv_file(fPath)
-
-    pointData = convert_data(h,d)
-
-    style = os.path.abspath(args.styles)
-    with open(style) as sf:
-        styleSettings = json.load(sf)
-
-    outputPath = 'test.kmz'
-    fPath = export_overlay(outputPath, pointData, styleSettings)
+    # Specify output file path
+    create_directory(oDir)
+    iDir, iFile = os.path.split(iPath)
+    oFile = iFile.replace(".csv", "")   
+    oPath = os.path.join(oDir,oFile+'.kmz')
+    
+    # Build the overlay
+    fPath = export_overlay(oPath, pointData, styleSettings)
+    print(fPath,'Created!')
+    
+    return True
 
 
 
