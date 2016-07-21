@@ -145,7 +145,7 @@ def create_html_table(headings, additionalCols):
     cellHTML = ''
     for i, cell in enumerate(additionalCols):
         try:
-            cellHTML += '<dt>' + h[i].strip() + '</dt>'
+            cellHTML += '<dt>' + headings[i].strip() + '</dt>'
         except:
             cellHTML += '<dt>Unknown Heading</dt>'
         cellHTML += '<dd>' + cell.strip() + '</dd>'
