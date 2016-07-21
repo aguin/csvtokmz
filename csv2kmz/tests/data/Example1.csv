@@ -2,4 +2,4 @@ Folder Name, Point Title, Latitude, Longitude, Point Style, Detail 1, Detail 2, 
 Folder3, Example 1, -27.1679, 142.0278, Default, TestA, TestB, TestC
 Folder3, Example 2, -27.4679, 142.0278, Square, TestA, TestB, TestC
 Folder2, Example 3, -27.9679, 142.0278, Default, TestA, TestB, TestC
-Folder1, Example 4, -28.1679, 142.0278, NotAStyle, TestA, TestB, TestC
+Folder1, Example 4, -28.1679, 142.0278, Square, TestA, TestB, TestC
