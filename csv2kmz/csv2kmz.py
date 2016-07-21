@@ -1,10 +1,13 @@
 import os
 import argparse
+import logging
 from buildkmz import create_kmz_from_csv
         
 def main():
     """ Build file as per user inputs
     """
+    
+    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
     
     args = get_cmd_args() 
     iPath = args.input
