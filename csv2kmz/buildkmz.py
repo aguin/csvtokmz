@@ -65,10 +65,15 @@ def load_styles(style_yaml) -> dict:
         if style in styles:
             logging.warning('Style %s already exists', style)
             continue
-        styles[style] = default_style
+        else:
+            styles[style] = dict()  # Create new style
+        
         for attr in ['icon_image', 'icon_color', 'icon_scale', 'text_scale']:
             if attr in new_styles[style]:
-                styles[style][attr] = new_styles[style][attr]
+                attr_val = new_styles[style][attr]
+            else:
+                attr_val = default_style[attr]
+            styles[style][attr] = attr_val
     return styles
 
 
