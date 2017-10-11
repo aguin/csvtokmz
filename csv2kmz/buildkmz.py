@@ -1,106 +1,128 @@
 import os
-import json
-import csv
 import sys
+import csv
 import logging
+import yaml
 import simplekml
 
+DEFAULT_ICON_IMAGE = 'https://maps.google.com/mapfiles/kml/paddle/red-circle.png'
+DEFAULT_ICON_COLOR = 'ffffffff'
+DEFAULT_ICON_SCALE = 1.0
+DEFAULT_TEXT_SCALE = 1.0
 
-def create_kmz_from_csv(csvFile, styleFile='settings/styles.json', outputDir='output/'):
-    """ Check file locations exists and then process
+
+def create_kmz_from_csv(csv_file: str, output_dir: str,
+                        styles=None) -> str:
+    """ Converts a parsed csv file to a kmz Google Earth overlay.
+
+    :param csv_file: Filepath to csv input file
+    :param output_dir: Specify alternate output directory for kmz
+    :param styles: Specify additional style config
+    :return: Filepath of outputted kmz file
     """
-    styleSettings = load_styles(os.path.abspath(styleFile))
-    csvFile = os.path.abspath(csvFile)
-    if not os.path.isfile(csvFile):
-        logging.error('The input file could not be found at ' + str(csvFile))
 
-    h, data = import_csv_file(csvFile)
+    if not os.path.isfile(csv_file):
+        logging.error('The input file could not be found at %s', csv_file)
+        return None
+
+    styleSettings = load_styles(styles)
+
+    # Create output folder if needed
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    h, data = import_csv_file(csv_file)
     pointData = convert_data(h, data)
 
-    # Specify output file location
-    outputDir = os.path.abspath(outputDir)
-    if not os.path.exists(outputDir):
-        os.makedirs(outputDir)
-    csvDir, csvName = os.path.split(csvFile)
-    fileName = os.path.splitext(csvName)[0]
-    kmzFile = os.path.join(outputDir,fileName+'.kmz')
-
+    csv_dir, csv_name = os.path.split(csv_file)
+    file_name = os.path.splitext(csv_name)[0]
+    kmzFile = os.path.join(output_dir, '{}.kmz'.format(file_name))
 
     return export_overlay(kmzFile, pointData, styleSettings)
 
 
-def load_styles(styleFile):
-    """ Load point style dictionary
-    """
-    if not os.path.isfile(styleFile):
-        logging.error('The style settings could not be loaded from '+str(styleFile))
+def load_styles(style_yaml) -> dict:
+    """ Load point style dictionary """
 
-    with open(styleFile) as sf:
-        try:
-            styleSettings = json.load(sf)
-        except ValueError:
-            logging.error('The styles json file is not in the correct format!')
-            raise
-    return styleSettings
+    default_style = {"icon_image": DEFAULT_ICON_IMAGE,
+                    "icon_color": DEFAULT_ICON_COLOR,
+                    "icon_scale": DEFAULT_ICON_SCALE,
+                    "text_scale": DEFAULT_TEXT_SCALE,
+                    }
+    styles = {'Default': default_style}
+
+    if style_yaml is None:
+        return styles
+
+    if not os.path.isfile(style_yaml):
+        logging.error('Invalid style file location %s', style_yaml)
+        return styles
+
+    with open(style_yaml, 'r') as stream:
+        new_styles = yaml.load(stream)
+
+    for style in new_styles:
+        if style in styles:
+            logging.warning('Style %s already exists', style)
+            continue
+        styles[style] = default_style
+        for attr in ['icon_image', 'icon_color', 'icon_scale', 'text_scale']:
+            if attr in new_styles[style]:
+                styles[style][attr] = new_styles[style][attr]
+    return styles
 
 
-def export_overlay(fPath, pointData, styleSettings):
+def export_overlay(file_path, pnt_data: list, styles: dict):
     """ Build point objects then export
     """
 
     kml = simplekml.Kml()
-
     # Get list of unique folders
     folders = []
-    for row in pointData:
-        folders.append(row[0].strip())
+    for row in pnt_data:
+        folder = row[0].strip()
+        folders.append(folder)
     folders = list(set(folders))
 
     # Add points to corresponding folder
-    for folder in folders:
+    for folder in sorted(folders):
         fol = kml.newfolder(name=folder)
-        for point in pointData:
-            pntFolder = point[0]
-            if pntFolder == folder:
-                latlon = ((point[3]), (point[2]))
-                pntName = point[1]
-                pntDesc = point[5]
+        for point in pnt_data:
+            pnt_folder = point[0]
+            if pnt_folder == folder:
+                lat = point[3]
+                lon = point[2]
+                coords = [(lat, lon)]
+                pnt_name = point[1]
+                pnt_desc = point[5]
+                style_desc = point[4]
 
                 # Don't add points without co-ordinates
-                if not latlon == (None, None):
+                if lat and lon:
                     # Create the point
-                    pnt = fol.newpoint(name=pntName, coords=[latlon],
-                                       description=pntDesc)
-
+                    pnt = fol.newpoint(name=pnt_name, coords=coords,
+                                       description=pnt_desc)
                     # Load styles
                     try:
-                        style = styleSettings[point[4]]
+                        style = styles[style_desc]
                     except KeyError:
-                        logging.warning('Style '+ str(point[4]) + ' not found.')
-                        # Specify default style
-                        try:
-                            style = styleSettings['Default']
-                        except KeyError:
-                            logging.error('No default style specified')
-                            style = {'textScale': None,
-                                     'iconColor': None,
-                                     'iconScale': None,
-                                     'iconImage': None}
+                        msg = 'Style %s not specified'
+                        logging.warning(msg, style_desc)
+                        style = styles['Default']
 
                     # Apply styles
-                    try:
-                        pnt.style.labelstyle.scale = style['textScale']
-                        pnt.style.iconstyle.color = style['iconColor']
-                        pnt.style.iconstyle.scale = style['iconScale']
-                        pnt.style.iconstyle.icon.href = style['iconImage']
-                    except KeyError:
-                        logging.error('The styles json is not in the correct format!')
+                    pnt.style.iconstyle.icon.href = style['icon_image']
+                    pnt.style.iconstyle.color = style['icon_color']
+                    pnt.style.iconstyle.scale = style['icon_scale']
+                    pnt.style.labelstyle.scale = style['text_scale']
 
     # Save File as KMZ
-    kml.savekmz(fPath)
-    sys.stdout.flush()
+    kml.savekmz(file_path)
 
-    return fPath
+    # simplekml doesn't let you open the class as a with
+    # So flush output when finished to close object
+    sys.stdout.flush()
+    return file_path
 
 
 def convert_data(h, data):
@@ -127,12 +149,13 @@ def process_data_row(h, row):
         latitude = float(row[2].strip())
         longitude = float(row[3].strip())
     except ValueError:
-        logging.warning('Co-ordinates not in correct format for point '+pointTitle)
+        logging.warning(
+            'Co-ordinates not in correct format for point ' + pointTitle)
         latitude, longitude = None, None
     style = str(row[4].strip())
 
-    additionalCols = row[4:]
-    cellHTML = create_html_table(h, additionalCols)
+    additionalCols = row[5:]
+    cellHTML = create_html_table(h[5:], additionalCols)
 
     newRow = [folderName, pointTitle, latitude, longitude, style, cellHTML]
 

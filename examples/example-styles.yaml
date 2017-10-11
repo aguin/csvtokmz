@@ -1,0 +1,7 @@
+Dot:
+    icon_image: http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png
+    icon_color: ff143CFF
+    icon_scale: 1.0
+    text_scale: 0.7
+Circle:
+    icon_image: http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png

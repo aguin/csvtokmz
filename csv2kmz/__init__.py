@@ -1,4 +1,9 @@
-__author__ = 'aguinane'
-__version__ = '1.0.0'
+"""
+    csv2kmz
+    ~~~~~
 
-from .buildkmz import create_kmz_from_csv
+    Converts a parsed csv file to a kmz Google Earth overlay.
+"""
+
+from csv2kmz.buildkmz import create_kmz_from_csv
+from csv2kmz.cli import cli
